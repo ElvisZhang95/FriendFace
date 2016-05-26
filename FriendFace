@@ -1,0 +1,571 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package friendfaceserver;
+
+/*
+ * copyright Grant Malcolm
+ *
+ *   This is a model solution for a practical assignment for
+ *   COMP213, Advanced Object-oriented Programming, at the
+ *   University of Liverpool.  Please do not distribute or
+ *   archive this source code.
+ *
+ */
+
+// package Comp213.FriendFace;
+
+/**
+   Simple social-networking application.
+    Stores a list of registered members, each of whom has a list of friends,
+    and a list of friend requests.
+    Allows new members to register, add friend requests,
+    view friend requests, accept and refuse friend requests,
+    and get friends of friends of a given member.
+  
+   @author <a href="mailto:grant@liverpool.ac.uk">Grant Malcolm</a>
+   @version 1.0
+ */
+public class FriendFace {
+
+   /**
+      Lists without duplicates.
+    */
+   private static class List<E> {
+   
+      /**
+         Nodes for a linked list structure.
+       */
+      private static class Node<V> {
+
+         /**
+            The value at this node.
+          */
+         private final V value;
+
+         /**
+            The next node in the linked list.
+          */
+         private Node<V> next;
+
+         /**
+            Create a node with a given value and given next node.
+
+            @param value the value of this node
+            @param next the node to follow this node
+          */
+         public Node(final V value, final Node<V> next) {
+            this.value = value;
+            this.next = next;
+         }
+      } // end inner inner class Node
+
+      /**
+         The first node in the linked list.
+         Set to null if the list is empty.
+       */
+      private Node<E> first;
+
+      /**
+         Create a new, empty list.
+       */
+      public List() {
+         this.first = null;
+      }
+
+      /**
+         Add a value to the start of the list.
+         Only adds the value if it does not already occur in the list.
+
+         @param value the value to add to the list
+         @return false if the value is already in the list; true otherwise
+       */
+      public boolean add(final E value) {
+         if (this.isIn(value.toString()) != null) {
+            // value already in list
+            return false;
+         } else {
+            // value not already in list
+            this.first = new Node<E>(value, this.first);
+            return true;
+         }
+      }
+
+      /**
+         Test whether a value is in the list.
+         Search for the value by a string representation of the value,
+         and return that value if it is; null otherwise.
+         toString() is used to compare values to
+         the given string representation.
+
+         @param stringRep a string representation of the value to search for
+         @return the object if it occurs in the list; null otherwise
+       */
+      public E isIn(final String stringRep) {
+         // start at the beginning
+         Node<E> current = first;
+         while (current != null) { // not at end of list
+            if (current.value.toString().equals(stringRep)) {
+               // found it
+               return current.value;
+            }
+            // else: move on to next node
+            current = current.next;
+         }
+         // only here if value not found
+         return null;
+      }
+
+      /**
+         Remove an element from the list.
+         Search for the element by string representation;
+         return the element if it occurs in the list; null otherwise.
+
+         @param stringRep a string representation of the value to search for
+         @return the removed object if it was found in the list; null otherwise
+       */
+      public E remove(final String stringRep) {
+         // value to return: null if we don't find the value
+         E returnVal = null;
+         // used to traverse the list - start at the beginning
+         Node<E> curr = this.first;
+         // the node that points to curr, if it exists
+         Node<E> prev = null;
+         /*
+           loop through the list, and end the loop when either:
+           -- value is found and curr is the node containing the value,
+              and prev is the node before that in the list; or
+           -- we reach the end of the list (curr == null)
+              without having found the value (so just return null)
+         */
+         boolean notFound = true;
+         while (curr != null && notFound) { // not at end of list and not found
+            if (curr.value.toString().equals(stringRep)) {
+               // found it: set the return value and exit loop
+               returnVal = curr.value;
+               notFound = false;
+            } else {
+               /*
+                  not found: move on to next node.
+                  nb we only move curr if we haven't found the value
+                */
+               prev = curr;
+               curr = curr.next;
+            }
+         }
+         // either curr is null or the node to be removed
+         if (curr != null) { // not at end of list, therefore we found it
+            if (prev == null) { // the value is the first in the list
+               // 2nd element becomes the 1st
+               this.first = curr.next;
+            } else { // value not at start of list: point over curr to next
+               prev.next = curr.next;
+            }
+         }
+         return returnVal;
+      }
+
+      /**
+         Give a string representation of the list, with each element
+         on a separate line.
+
+         @return the <code>toString()</code> values of each element
+                 in the list, each on a separate line.
+       */
+      public String toString() {
+         String list = "";  // return string
+         Node<E> curr = this.first; // start at beginning
+         while (curr != null) { // not at end of list
+            // add current value to string
+            list += curr.value + "\n";
+            // move on to next element
+            curr = curr.next;
+         }
+         return list;
+      }
+   } // end inner class List
+
+   /**
+      Registered user of FriendFace.
+      Members have names,
+      which by assumption are strings that don't contain "\n",
+      and a list of friends, each of whom is a member.
+    */
+   private static class Member {
+
+      /**
+         The name of the registered user.
+       */
+      private final String name;
+
+      /**
+         The list of friends of the registered user.
+       */
+      private final List<Member> friends = new List<Member>();
+
+      /**
+         The list of members who have requested friendship with this member.
+       */
+      private final List<Member> friendSeekers = new List<Member>();
+
+      /**
+         Create a new member with a given name.
+         It is assumed that the name does not contain a newline.
+
+         @param name the name of the new member; should not contain a newline
+       */
+      public Member(final String name) {
+         this.name = name;
+      }
+
+      /**
+         Add a friend to this member's list of friends.
+
+         @param friend the member to add to this member's friend-list
+       */
+      public void addFriend(final Member friend) {
+         this.friends.add(friend);
+      }
+
+      /**
+         Return the name of the member.
+         For the purposes of this application,
+         a member is uniquely determined by their name.
+
+         @return the name of the member
+       */
+      public String toString() {
+         return this.name;
+      }
+   } // end inner class Member
+
+   /**
+      The list of registered FriendFace members.
+    */
+   private final List<Member> members;
+
+   /**
+      Create a new FriendFace system
+      with no members and no pending friendship requests.
+    */
+   public FriendFace() {
+      this.members = new List<Member>();
+   }
+
+   /**
+      Register a new member.
+      Their chosen name should not already exist in the system;
+      if it does already exist, the list of members remains unchanged
+      and the method returns <code>false</code>.
+
+      @param name the chosen name of the new member
+      @return true if the new member is successfully added
+                {i.e., <code>name</code> does not already exist in the system)
+    */
+   public boolean register(final String name) {
+      return this.members.add(new Member(name));
+   }
+
+   /**
+      Add a friendship request,
+      given the name of the member seeking friendship,
+      and the name of the member with whom friendship is sought.
+      If both names are names of existing members,
+      and the request does not already exist,
+      the request is added to the list of pending friendship requests
+      and the method returns true;
+      otherwise the method just returns false.
+
+      @param requester the name of the member requesting friendship
+      @param friend the name of the member with whom friendship is sought
+      @return <code>true</code> if the request is successfully added,
+              i.e., both names are existing members and the request
+              does not already exist; <code>false</code> otherwise
+    */
+   public boolean addRequest(final String requester, final String friend) {
+      // find the requesting member
+      final Member requestingMember = this.members.isIn(requester);
+      // find the member whose friendship is requested
+      final Member soughtMember = this.members.isIn(friend);
+      if (requestingMember != null && soughtMember != null) {
+         /* both members exist;
+          * add the request provided it doesn't already exist
+          */
+         return soughtMember.friendSeekers.add(requestingMember);
+      } else {
+         // members don't exist
+         return false;
+      }
+   }
+
+
+   /**
+      Accept a friendship request, given the name of the requesting member
+      and the name of the member with whom friendship is sought.
+      Both names should be the names of existing members,
+      and the request should exist in the list of pending friendship requests;
+      if so, each member is added to the other's list of friends,
+      the request is removed from the list of pending requests
+      and the method returns <code>true</code>;
+      if not, the method returns <code>false</code>
+
+      @param requester the name of the member requesting friendship
+      @param friend the name of the member with whom friendship is sought
+      @return <code>true</code> if the request is successfully accepted,
+              i.e., both names are existing members and the request
+              exists; <code>false</code> otherwise
+    */
+   public boolean acceptRequest(final String requester, final String friend) {
+      // get the requesting member
+      final Member soughtMember = this.members.isIn(friend);
+      if (soughtMember != null) {
+         // get the requesting member
+         final Member reqMember = soughtMember.friendSeekers.remove(requester);
+         if (reqMember != null) {
+            // request exists: make friends
+            soughtMember.addFriend(reqMember);
+            reqMember.addFriend(soughtMember);
+            return true;
+         }
+      }
+      // either members or request doesn't exist
+      return false;
+   }
+
+   /**
+      Refuse a friendship request.
+      The request is removed from the list of pending friendship requests.
+      Return <code>true</code> if the request exists;
+      <code>false</code> otherwise.
+
+      @param requester the name of the member requesting friendship
+      @param friend the name of the member with whom friendship is sought
+      @return <code>true</code> if the request is successfully refused,
+              i.e., both names are existing members and the request
+              does not already exist; <code>false</code> otherwise
+    */
+   public boolean refuseRequest(final String requester, final String friend) {
+      // get the requesting member
+      final Member soughtMember = this.members.isIn(friend);
+      // return: member exists and request exists
+      return soughtMember != null
+             && soughtMember.friendSeekers.remove(requester) != null;
+   }
+
+   /**
+      Get the pending friendship requests for a given member.
+      Returns the list of names of all members who have requested friendship
+      with the named member, each name followed by a newline.
+
+      @param name the name of the member
+      @return the string containing all names of members who have requested
+             friendship with the named member, each name followed by a newline;
+             the empty string if the named member doesn't exist
+    */
+   public String getRequests(final String name) {
+      String results = ""; // the string to return
+      // find the named member
+      final Member soughtMember = this.members.isIn(name);
+      if (soughtMember != null) {
+         results = soughtMember.friendSeekers.toString();
+      }
+      return results;
+   }
+
+   /**
+      Get the friends of the friends of a given member.
+
+      @param memberName the name of a member
+      @return the string containing all the names of the friends of the
+              named member's friends, without the named member's name,
+              each name followed by a newline; the empty string if the
+              named member doesn't exist
+    */
+   public String getFFriends(final String memberName) {
+      // the names of all friends of friends
+      List<String> ffriends = new List<String>();
+      // find the named member
+      final Member member = this.members.isIn(memberName);
+      if (member != null) {
+         // traverse the list of friends
+         List.Node<Member> currFriend = member.friends.first;
+         // used to traverse the list of friends of the current friend
+         List.Node<Member> friendsNode;
+         String ffriendName; // name of a friend of a friend
+         while (currFriend != null) {
+            // go through the list of currFriend's friends
+            friendsNode = currFriend.value.friends.first;
+            while (friendsNode != null) {
+               // get the name of the friend of a friend
+               ffriendName = friendsNode.value.toString();
+               if (! ffriendName.equals(memberName)) {
+                  // not the named member, so add to the list
+                  ffriends.add(ffriendName);
+               }
+               // move on to the next friend of a friend
+               friendsNode = friendsNode.next;
+            } // end nested loop
+            // move on to the next friend
+            currFriend = currFriend.next;
+         }
+      }
+      // got all the friends of friends; return the formatted string
+      return ffriends.toString();
+   }
+
+   /**
+      For testing.
+      See <a href="friendFaceTest.maude">friendFaceTest.maude</a>
+      for expected results.
+
+      @param args not used
+    */
+   public static void main(String[] args) {
+      // set up a new FriendFace system
+      final FriendFace gBook = new FriendFace();
+
+      // class to format tests
+      class Printer {
+
+         // number the tests
+         int testNum = 0;
+
+         // stores the results of calling FriendFace methods
+         boolean result;
+
+         // print a separator between tests
+         void printTestHeader(final String what) {
+            System.out.println("****** Test " + ++testNum + ": " + what);
+         }
+
+         // test register()
+         void testRegister(final String what, final String name) {
+            this.printTestHeader(what);
+            this.result = gBook.register(name);
+            System.out.println("   --- registering " + name + ";");
+            System.out.println("   result = " + result);
+            System.out.println();
+         }
+
+         // test getFFriends()
+         void testFFriends(final String what, final String name) {
+            printTestHeader(what);
+            String ffriends = gBook.getFFriends(name);
+            System.out.println("   --- Ffriends of " + name + ":");
+            System.out.print(ffriends);
+            System.out.println("   --- END Ffriends of " + name);
+            System.out.println();
+         }
+
+         // test addRequest()
+         void testAddRequest(final String what,
+                             final String requester, final String friend) {
+            printTestHeader(what);
+            result = gBook.addRequest(requester, friend);
+            System.out.println("   --- add friend req "
+                               + requester + ", " + friend + ": " + result);
+            System.out.println();
+         }
+
+         // test acceptRequest()
+         void testAcceptRequest(final String what,
+                                final String requester, final String friend) {
+            printTestHeader(what);
+            result = gBook.acceptRequest(requester, friend);
+            System.out.println("   --- accept friend req "
+                               + requester + ", " + friend + ": " + result);
+            System.out.println();
+         }
+
+         // test refuseRequest
+         void testRefuseRequest(final String what,
+                                final String requester, final String friend) {
+            printTestHeader(what);
+            result = gBook.refuseRequest(requester, friend);
+            System.out.println("   --- refuse friend req "
+                               + requester + ", " + friend + ": " + result);
+            System.out.println();
+         }
+
+         // test getRequests
+         void testGetRequests(final String what, final String friend) {
+            printTestHeader(what);
+            String result = gBook.getRequests(friend);
+            System.out.print("   --- get friend req "
+                               + friend + ":\n" + result);
+            System.out.println();
+         }
+      } // end local class Printer
+
+      // example names used in the tests, from The IT Crowd
+      final String[] names = {"Jennywenny",
+                              "Moss",
+                              "Roy",
+                              "Delina",
+                              "The Joker",
+                              "Jilly, Jilly Spencer",
+                              "Douglas"};
+
+      // formatter for the tests
+      final Printer out = new Printer();
+
+      out.testRegister("register a new member", names[0]);
+      out.testRegister("register a new member", names[1]);
+      out.testRegister("register a new member", names[2]);
+      out.testFFriends("friends of an existing member", names[2]);
+      out.testRegister("register an existing member", names[1]);
+      out.testGetRequests("Friend reqs for existing member", names[2]);
+      out.testGetRequests("Friend reqs for non-existing member", names[3]);
+      out.testAddRequest("add friend req for existing users",
+                         names[0], names[1]);
+      out.testAddRequest("add duplicate friend req",
+                         names[0], names[1]);
+      out.testAddRequest("add friend req for existing users",
+                         names[2], names[0]);
+      out.testAddRequest("add friend req, non-existing user",
+                         names[0], names[3]);
+      out.testAddRequest("add friend req, non-existing user",
+                         names[3], names[0]);
+      out.testGetRequests("Friend reqs for existing member", names[0]);
+      out.testGetRequests("Friend reqs for existing member", names[1]);
+      out.testGetRequests("Friend reqs for existing member", names[2]);
+      out.testGetRequests("Friend reqs for non-existing member", names[3]);
+      out.testRegister("register a new member", names[3]);
+      out.testAddRequest("add friend req, now existing user",
+                         names[3], names[0]);
+      out.testGetRequests("Friend reqs for existing member", names[0]);
+      out.testFFriends("friends of friends, non-existing user", names[4]);
+      out.testFFriends("friends of friends, existing user", names[0]);
+      out.testAcceptRequest("accept 1st req", names[0], names[1]);
+      out.testAcceptRequest("accept non-existant req", names[0], names[2]);
+      out.testRefuseRequest("refuse last req", names[3], names[0]);
+      out.testGetRequests("Friend reqs for existing member", names[0]);
+      out.testGetRequests("Friend reqs for existing member", names[1]);
+      out.testGetRequests("Friend reqs for existing member", names[2]);
+      out.testGetRequests("Friend reqs for existing member", names[3]);
+      out.testAcceptRequest("accept 2nd req", names[2], names[0]);
+      out.testAddRequest("add friend req", names[1], names[2]);
+      out.testAcceptRequest("accept this req", names[1], names[2]);
+      out.testFFriends("ffriends of existing user", names[0]);
+      out.testFFriends("ffriends of existing user", names[1]);
+      out.testFFriends("ffriends of existing user", names[2]);
+      out.testFFriends("ffriends of existing user", names[3]);
+      out.testFFriends("ffriends of non-existing user", names[4]);
+      out.testRegister("register a new member", names[4]);
+      out.testAddRequest("add friend req", names[0], names[4]);
+      out.testAddRequest("add friend req", names[4], names[0]);
+      out.testAddRequest("add friend req", names[4], names[3]);
+      out.testAddRequest("add friend req", names[3], names[4]);
+      out.testAcceptRequest("accept req", names[4], names[0]);
+      out.testAcceptRequest("accept mirror req", names[0], names[4]);
+      out.testRefuseRequest("refuse req", names[3], names[4]);
+      out.testAcceptRequest("accept mirror req", names[4], names[3]);
+      out.testFFriends("ffriends of existing user", names[0]);
+      out.testFFriends("ffriends of existing user", names[1]);
+      out.testFFriends("ffriends of existing user", names[2]);
+      out.testFFriends("ffriends of existing user", names[3]);
+      out.testFFriends("ffriends of existing user", names[4]);
+   }
+}
