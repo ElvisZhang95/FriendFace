@@ -1,0 +1,350 @@
+/*
+ * This is a FriendFace Server that makes that functionality available on the 
+ * world-wide web. Anyone who connect the web and know the address of the server
+ * can use this system to register and make friends with others.
+ */
+package friendfaceserver;
+
+import java.io.*;
+import java.net.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
+/** 
+ *  The FriendFaceServer class mainly provides methods to establish
+ *  the connection and close the Socket. The server is multi-threaded and
+ *  thread safe. It will close socket connection over a period of 5 seconds. 
+ *  In addition, the server set up 5 seconds for other threads to complete 
+ *  before exiting the java interpreter if server is shut down.
+ * 
+ * @author Shuhao Zhang 201138949 x5sz2
+ */
+public class FriendFaceServer {
+
+    // port number for the server
+    private static final int PORT_NUM = 8189;
+
+    // the server socket:
+    private static ServerSocket ss;
+
+    // set when shutDown() is called to stop the server:
+    private static boolean shutDownCalled = false;
+
+    // shut the server down by closing the server socket
+    public static void shutDown() {
+        // flag that the server socket has been closed
+        shutDownCalled = true;
+
+        try {
+            /*
+             *  close the server socket;
+             *  call of accept() in main will throw a SocketException
+             */
+            ss.close();
+        } catch (Exception e) {
+            // something went wrong; give data:
+            System.err.println("problem shutting down:");
+            System.err.println(e.getMessage());
+            // and trust the JVM to clean up:
+            System.exit(1);
+        }
+    }
+
+    public static void main(String[] args) {
+
+        // for client connections
+        Socket incoming;
+        // create a new FriendFace for executing six functions
+        FriendFace gBook = new FriendFace();
+        // create Cached Thread Pool to manage multi-threads
+        ExecutorService exec = Executors.newCachedThreadPool();
+
+        try {
+            // set up server socket
+            ss = new ServerSocket(PORT_NUM);
+
+            while (true) {
+                //connect to the socket
+                incoming = ss.accept();
+                /* Socket will be closed over 5 seconds if there is no input
+                  from client program*/
+                incoming.setSoTimeout(5000);
+                // start a task for one thread
+                exec.execute(new FriendFaceHandler(incoming, gBook));
+
+                  
+            }
+
+        } catch (SocketException se) {
+            /*
+             * will be thrown when accept() is called after closing
+             * the server socket, in method shutDown().
+             * when the socket try to shut down, the server allows other threads
+             * to complete in 5 seconds before exiting the java interpreter.
+             *
+             * If shutDownCalled, then simply exit; otherwise,
+             * something else has happened:
+             *
+             */
+            exec.shutdown();
+            try {
+                // Wait a while for existing tasks to terminate
+                if (!exec.awaitTermination(5, TimeUnit.SECONDS)) {
+                    exec.shutdownNow(); // Cancel currently executing tasks
+                    // Wait a while for tasks to respond to being cancelled
+                    if (!exec.awaitTermination(5, TimeUnit.SECONDS)) {
+                        System.err.println("Pool did not terminate");
+                    }
+                }
+            } catch (InterruptedException ie) {
+                // (Re-)Cancel if current thread also interrupted
+                exec.shutdownNow();
+                // Preserve interrupt status
+                Thread.currentThread().interrupt();
+            }
+
+            if (!shutDownCalled) {
+                System.err.println("socket problem:");
+                System.err.println(se.getMessage());
+                // trust the JVM to clean up
+                System.exit(1);
+            }      
+        } catch (IOException ioe) {
+            System.err.println("I/O error:");
+            System.err.println(ioe.getMessage());
+            System.exit(1);
+        }
+        finally {
+            if (ss != null) {
+                try {
+                    ss.close();
+                } catch (Exception e) {
+                    System.err.println("closing: " + e.getMessage());
+                }
+            }
+        }
+    }
+      
+}
+
+/*
+ *  FriendFaceHandler class to handle one remote client
+ *  in a separate thread.
+ *  The FriendFaceHandler can recognize different commands by the input
+ *  from the client program
+ */
+class FriendFaceHandler implements Runnable {
+
+    // the connection to the remote client
+    private Socket client;
+    // the connection to the friendface functionality
+    private FriendFace friendface;
+    // set up lock to keep the thread safe
+    final ReentrantLock lock = new ReentrantLock();
+    final Condition con = lock.newCondition();
+
+    FriendFaceHandler(Socket s, FriendFace ff) {
+        client = s;
+        friendface = ff;
+    }
+
+    /*
+     *  FriendFace Handle session for one remote client:
+     *  set up I/O, then repeat all input till
+     *  client sends "BYE"
+     *  when client sends "shutdown", the server will closed.
+     *  client sends number 0-5 to choose different functionality.
+     */
+    public void run() {
+        // for I/O
+        BufferedReader in = null;
+        PrintWriter out = null;
+
+        try {
+
+            // set up I/O
+            in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            out = new PrintWriter(new OutputStreamWriter(client.getOutputStream()));
+
+            // prompt client
+            out.println("Hello! Enter BYE to exit.");
+            out.flush();
+
+            // for client input
+            String line;
+            String sline;
+            String tline;
+            boolean done = false;
+            while (!done) {
+                
+                // Set up the lock
+                lock.lock();
+                line = in.readLine();
+                // Choose the different functionality by first line.
+                switch(line.trim())
+                {
+                    // Register new member
+                    case "0":
+                    sline = in.readLine().trim();
+                        if (sline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            if (friendface.register(sline)) {
+                                out.print("o\n");
+                                out.flush();
+                            } else {
+                                out.print("x\n");
+                                out.flush();
+                            }
+                        }
+                    break;
+                    
+                    // Get the requests list for a given member
+                    case "1":
+                     String getRequests;
+                        sline = in.readLine().trim();
+                        if (sline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            getRequests = friendface.getRequests(sline);
+                            if(getRequests.equals("")){
+                            out.print("o\n\n");
+                            out.flush();
+                            }else{
+                            out.print("o\n" + getRequests);
+                            out.flush();
+                            }
+                        }
+                    break;
+                        
+                    // Submit a friendship request    
+                    case "2":
+                        sline = in.readLine().trim();
+                        tline = in.readLine().trim();
+                        if (sline.equals("") || tline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            if (friendface.addRequest(sline, tline)) {
+                                out.print("o\n");
+                                out.flush();
+                            } else {
+                                out.print("x\n");
+                                out.flush();
+                            }
+                        }
+                    break;
+                     
+                    // Accept a friendship request
+                    case "3":
+                     sline = in.readLine().trim();
+                        tline = in.readLine().trim();
+                        if (sline.equals("") || tline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            if (friendface.acceptRequest(sline, tline)) {
+                                out.print("o\n");
+                                out.flush();
+                            } else {
+                                out.print("x\n");
+                                out.flush();
+                            }
+                        }
+                    break;
+                    
+                    // Refuse a friendship request
+                    case "4":
+                    sline = in.readLine().trim();
+                        tline = in.readLine().trim();
+                        if (sline.equals("") || tline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            if (friendface.refuseRequest(sline, tline)) {
+                                out.print("o\n");
+                                out.flush();
+                            } else {
+                                out.print("x\n");
+                                out.flush();
+                            }
+                        }
+                    break;
+                    
+                    /* Request a list of all the friends of a given 
+                    member's friends  */
+                    case "5":
+                    String getffriends;
+
+                        sline = in.readLine().trim();
+                        if (sline.equals("")) {
+                            out.print("?\n");
+                            out.flush();
+                        } else {
+                            
+                            getffriends = friendface.getFFriends(sline);
+                            if(getffriends.equals("")){
+                            out.print("o\n\n");
+                            out.flush();
+                            }else{
+                            out.print("o\n" + getffriends);
+                            out.flush();
+                            }
+                        }
+                    break;   
+                    
+                    // stop input the command and close the connection
+                    case "bye":
+                     done = true;
+                    break;
+                    
+                    // close the FriendFaceServer
+                    case "shutdown":  
+                         FriendFaceServer.shutDown();
+                    break;    
+                    
+                    // not properly formatted command
+                    default:
+                     System.out.print("?\n");
+                    }
+                }
+
+        } catch (RuntimeException e2){
+            //System.err.print(e2.getMessage());
+        } 
+        catch (SocketTimeoutException e1) {
+            // there is no input over 5 seconds from client program
+            System.err.println("Socket Time out");
+            System.err.println(e1.getMessage());
+        } catch (IOException e) {
+            // fatal error for this session
+            System.err.println(e.getMessage());
+        } finally {  
+            // release the lock
+            lock.unlock();
+            // close connections
+            try {
+                in.close();
+            } catch (IOException e) {
+                System.err.println(e.getMessage());
+            }
+            if (out != null) {
+                out.close();
+            }
+            if (client != null) {
+                try {
+                    client.close();
+                } catch (IOException e) {
+                    System.err.print(e.getMessage());
+                }
+            }
+        }
+    }
+
+}
+
