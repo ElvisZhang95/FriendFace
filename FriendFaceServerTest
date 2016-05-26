@@ -1,0 +1,148 @@
+/*
+ * This is a test for friendfaceserver. It will connect to the server and input
+ * different commands to test the server. 
+ */
+package friendfaceserver;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.net.Socket;
+
+/**
+ *
+ * @author Shuhao Zhang 201138949 x5sz2
+ */
+public class FriendFaceServerTest {
+
+    // for socket connection
+    static Socket ss;
+    // count the number of test
+    int testNum = 0;
+    // set up the lock
+    Integer lock = new Integer(0);
+
+    public static void main(String[] args) {
+
+        try {
+            // set up a new friendface test
+            FriendFaceServerTest fft = new FriendFaceServerTest();
+            // connect to the server
+            ss = new Socket("localhost", 8189);
+             
+            // set up I/O
+            BufferedReader in = null;
+            PrintWriter out = null;
+            in = new BufferedReader(new InputStreamReader(ss.getInputStream()));
+            out = new PrintWriter(new OutputStreamWriter(ss.getOutputStream()));
+            // read the introduction (Hello!Enter BYE to exit. )
+            String line;
+            line = in.readLine();
+            // formatter for the tests
+            fft.ffaceTest(ss, "not properly formatted", "0\n\n", "0\\n\\n");
+            fft.ffaceTest(ss, "not properly formatted", "2\nMoss\n\n", "2\\nMoss\\n\\n");
+            fft.ffaceTest(ss, "not properly formatted", "3\n\n\n", "3\\n\\n\\n");
+            fft.ffaceTest(ss, "not properly formatted", "4\n\nRoy\n", "4\\n\\nRoy\\n");
+            fft.ffaceTest(ss, "register a new Member (Moss)", "0\nMoss\n", "0\\nMoss\\n");
+            fft.ffaceTest(ss, "register a new Member (Jennywenny)", "0\nJennywenny\n", "0\\nJennywenny\\n");
+            fft.ffaceTest(ss, "register a new Member (Roy)", "0\nRoy\n", "0\\nRoy\\n");
+            fft.ffaceTest(ss, "friends of an existing member", "5\nJennywenny\n", "5\\nJennywenny\\n");
+            fft.ffaceTest(ss, "register a existing member (Moss)", "0\nMoss\n", "0\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nMoss\n", "1\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for non-existing member", "1\nSteven\n", "1\\nSteven\\n");
+            fft.ffaceTest(ss, "add friend req for existing users", "2\nMoss\nJennywenny\n", "2\\nMoss\\nJennywenny\\n");
+            fft.ffaceTest(ss, "add duplicate friend req", "2\nMoss\nJennywenny\n", "2\\nMoss\\nJennywenny\\n");
+            fft.ffaceTest(ss, "add friend req for existing users", "2\nRoy\nMoss\n", "2\\nRoy\\nMoss\\n");
+            fft.ffaceTest(ss, "add friend req, non-existing user", "2\nMoss\nSteven\n", "2\\nMoss\\nSteven\\n");
+            fft.ffaceTest(ss, "add friend req, non-existing user", "2\nSteven\nMoss\n", "2\\nSteven\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nMoss\n", "1\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nJennywenny\n", "1\\nJennywenny\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nRoy\n", "1\\nRoy\\n");
+            fft.ffaceTest(ss, "Friend reqs for non-existing member", "1\nSteven\n", "1\\nSteven\\n");
+            fft.ffaceTest(ss, "register a new member", "0\nSteven\n", "0\\nSteven\\n");
+            fft.ffaceTest(ss, "add friend req, now existing user", "2\nSteven\nMoss\n", "2\\nSteven\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nMoss\n", "1\\nMoss\\n");
+            fft.ffaceTest(ss, "friends of friends, non-existing user", "5\nJoker\n", "5\\nJoker\\n");
+            fft.ffaceTest(ss, "friends of friends, existing user", "5\nMoss\n", "5\\nMoss\\n");
+            fft.ffaceTest(ss, "accept 1st req", "3\nMoss\nJennywenny\n", "3\\nMoss\\nJennywenny\\n");
+            fft.ffaceTest(ss, "accept non-existant req", "3\nMoss\nRoy\n", "3\\nMoss\\nRoy\\n");
+            fft.ffaceTest(ss, "refuse last req", "4\nSteven\nMoss\n", "4\\nSteven\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nMoss\n", "1\\nMoss\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nJennywenny\n", "1\\nJennywenny\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nRoy\n", "1\\nRoy\\n");
+            fft.ffaceTest(ss, "Friend reqs for existing member", "1\nSteven\n", "1\\nSteven\\n");
+            fft.ffaceTest(ss, "accept 2nd req", "3\nRoy\nMoss\n", "3\\nRoy\\nMoss\\n");
+            fft.ffaceTest(ss, "add friend req", "2\nJennywenny\nRoy\n", "2\\nJennywenny\\nRoy\\n");
+            fft.ffaceTest(ss, "accept this req", "3\nJennywenny\nRoy\n", "3\\nJennywenny\\nRoy\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nMoss\n", "5\\nMoss\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nJennywenny\n", "5\\nJennywenny\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nRoy\n", "5\\nRoy\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nSteven\n", "5\\nSteven\\n");
+            fft.ffaceTest(ss, "ffriends of non-existing user", "5\nJoker\n", "5\\nJoker\\n");
+            fft.ffaceTest(ss, "register a new member", "0\nJoker\n", "0\\nJoker\\n");
+            fft.ffaceTest(ss, "add friend req", "2\nMoss\nJoker\n", "2\\nMoss\\nJoker\\n");
+            fft.ffaceTest(ss, "add friend req", "2\nJoker\nMoss\n", "2\\nJoker\\nMoss\\n");
+            fft.ffaceTest(ss, "add friend req", "2\nJoker\nSteven\n", "2\\nJoker\\nSteven\\n");
+            fft.ffaceTest(ss, "add friend req", "2\nSteven\nJoker\n", "2\\nSteven\\nJoker\\n");
+            fft.ffaceTest(ss, "accept req", "3\nJoker\nMoss\n", "3\\nJoker\\nMoss\\n");
+            fft.ffaceTest(ss, "accept mirror req", "3\nMoss\nJoker\n", "3\\nMoss\\nJoker\\n");
+            fft.ffaceTest(ss, "refuse req", "4\nSteven\nJoker\n", "4\\nSteven\\nJoker\\n");
+            fft.ffaceTest(ss, "accept mirror req", "4\nJoker\nSteven\n", "4\\nJoker\\nSteven\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nMoss\n", "5\\nMoss\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nJennywenny\n", "5\\nJennywenny\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nRoy\n", "5\\nRoy\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nSteven\n", "5\\nSteven\\n");
+            fft.ffaceTest(ss, "ffriends of existing user", "5\nJoker\n", "5\\nJoker\\n");
+
+        } catch (IOException ex) {
+            
+            System.err.print(ex.getMessage());
+        }
+    }
+
+    /*
+     * ffaceTest is a method for testing the different functionalities of
+     * friendfaceserver and provides the united format to show the result.
+     *
+     */
+    void ffaceTest(Socket s, String a, String b, String c) {
+
+        try {
+            String result;
+            System.out.println(" ****** Test" + ++testNum + ": " + a + " ******");
+            System.out.println("Send to Server: " + c);
+            
+            // set up I/O
+            BufferedReader in = null;
+            PrintWriter out = null;
+            in = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            out = new PrintWriter(new OutputStreamWriter(s.getOutputStream()));
+  
+                        
+            synchronized (lock) {
+                // input a command to the server
+                out.print(b);
+                out.flush();
+                System.out.println("------------Result Start-------------");
+            }
+            // let thread sleep for a while to wait for the response of server
+            try {
+                Thread.sleep(5);
+            } catch (InterruptedException e) {
+                System.err.print(e.getMessage());
+            }
+            // print out all the result from server
+            while (in.ready()) {
+                result = in.readLine();
+                System.out.println(result);
+            }
+            System.out.println("-------------Result End--------------");
+            System.out.println("");
+
+        } catch (IOException ex) {
+            System.err.print("IOException");
+        }
+    }
+}
